@@ -47,7 +47,7 @@ last_pose = cozmo.util.Pose(0, 0, 0, angle_z=cozmo.util.Angle(degrees=0))
 flag_odom_init = False
 
 # goal location for the robot to drive to, (x, y, theta)
-goal = (3, 16, -45)
+goal = (2 ,16, -45)
 
 # map
 Map_filename = "maps/localization_map.json"
@@ -187,7 +187,7 @@ async def localization(robot: cozmo.robot.Robot):
             if await is_kidnapped(robot):
                 continue
             # Continue to move around and gain new information
-            await robot.drive_wheels(20, 5)
+            await robot.drive_wheels(16, 4)
         else:
             converged = True
     print("Converged: ",curr_x, curr_y)

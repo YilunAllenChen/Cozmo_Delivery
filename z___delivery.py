@@ -285,13 +285,22 @@ async def dock_with_cube(robot: cozmo.robot.Robot):
     print("Cozmo is waiting until he sees a cube.")
     cube = await robot.world.wait_for_observed_light_cube()
 
-    print("Cozmo found a cube, and will now attempt to dock with it:")
-    # Cozmo will approach the cube he has seen
-    # using a 180 approach angle will cause him to drive past the cube and approach from the opposite side
-    # num_retries allows us to specify how many times Cozmo will retry the action in the event of it failing
-    action = robot.dock_with_cube(cube, approach_angle=cozmo.util.degrees(0), num_retries=2)
-    await action.wait_for_completed()
-    print("result:", action.result)
+
+    # print("Cozmo found a cube, and will now attempt to dock with it:")
+    # # Cozmo will approach the cube he has seen
+    # # using a 180 approach angle will cause him to drive past the cube and approach from the opposite side
+    # # num_retries allows us to specify how many times Cozmo will retry the action in the event of it failing
+    await robot.dock_with_cube(cube, approach_angle=cozmo.util.degrees(0), num_retries=2).wait_for_completed()
+
+    await robot.set_lift_height(1).wait_for_completed()
+
+    await robot.turn_in_place(cozmo.util.degrees(45),
+                                speed=cozmo.util.Angle(degrees=60)).wait_for_completed()    
+
+async def init(robot: cozmo.robot.Robot):
+    
+    await robot.set_lift_height(0).wait_for_completed()
+
 
 
 class RobotThread(threading.Thread):
@@ -302,8 +311,8 @@ class RobotThread(threading.Thread):
         threading.Thread.__init__(self, daemon=True)
 
     def run(self):
-        cozmo.run_program(localization, use_viewer=False)
-
+        cozmo.run_program(init)
+        # cozmo.run_program(localization, use_viewer=False)
 
         cozmo.run_program(dock_with_cube)
 
