@@ -1,4 +1,4 @@
-from random import random
+from random import random as rd
 import json
 import threading
 
@@ -239,8 +239,8 @@ class CozMap:
         new_path = path
 
         for i in range(1000):
-            rand_node_ndx1 = int(random() * len(new_path))
-            rand_node_ndx2 = int(random() * len(new_path))
+            rand_node_ndx1 = int(rd() * len(new_path))
+            rand_node_ndx2 = int(rd() * len(new_path))
 
             if rand_node_ndx1 < rand_node_ndx2:
                 from_node_ndx = rand_node_ndx1

@@ -14,6 +14,9 @@ import numpy as np
 MAX_NODES = 20000
 
 
+from go_to_goal_cozmo import *
+
+
 def step_from_to(node0, node1, limit=20):
     ########################################################################
     # TODO: please enter your code below.
@@ -145,12 +148,13 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
     update_cmap = False
     update_cmap , _goal_center , marked = await detect_cube_and_update_cmap(robot, marked, cozmo_pos)
     
-    lastnode = cmap.get_start()
+    last_subpath = cmap.get_start()
     #while the current cosmo position is not at the goal:
     while cozmo_pos != final_pos:
         #break if path is none or empty, indicating no path was found
         if paths is None or len(paths) <= 0:
             break
+        
         
 
         # Get the next node from the path
@@ -158,11 +162,11 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
         #you can calculate the angle to turn through a trigonometric function
         subpath = paths.pop(0) # of type (from_node, to_node)
         print("path: {}".format(paths))
-        theta = np.arctan2(subpath.y - lastnode.y, subpath.x - lastnode.x)
-        distance = get_dist(subpath, lastnode)
-        lastnode = subpath
+        theta = np.arctan2(subpath.y - last_subpath.y, subpath.x - last_subpath.x)
+        distance = get_dist(subpath, last_subpath)
+        last_subpath = subpath
         await robot.turn_in_place(angle=cozmo.util.Angle(radians=theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed()
-        await robot.drive_straight(cozmo.util.distance_mm(distance_mm=distance), cozmo.util.speed_mmps(70)).wait_for_completed()
+        await robot.drive_straight(cozmo.util.distance_mm(distance_mm=distance), cozmo.util.speed_mmps(30)).wait_for_completed()
         await robot.turn_in_place(angle=cozmo.util.Angle(radians=-theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed() 
             
         # Update the current Cozmo position (cozmo_pos and cozmo_angle) to be new node position and angle 
@@ -276,6 +280,20 @@ async def detect_cube_and_update_cmap(robot, marked, cozmo_pos):
     return update_cmap, goal_center, marked
 
 
+async def dock_with_cube(robot: cozmo.robot.Robot):
+
+    print("Cozmo is waiting until he sees a cube.")
+    cube = await robot.world.wait_for_observed_light_cube()
+
+    print("Cozmo found a cube, and will now attempt to dock with it:")
+    # Cozmo will approach the cube he has seen
+    # using a 180 approach angle will cause him to drive past the cube and approach from the opposite side
+    # num_retries allows us to specify how many times Cozmo will retry the action in the event of it failing
+    action = robot.dock_with_cube(cube, approach_angle=cozmo.util.degrees(180), num_retries=2)
+    await action.wait_for_completed()
+    print("result:", action.result)
+
+
 class RobotThread(threading.Thread):
     """Thread to run cozmo code separate from main thread
     """
@@ -284,12 +302,17 @@ class RobotThread(threading.Thread):
         threading.Thread.__init__(self, daemon=True)
 
     def run(self):
+        cozmo.run_program(localization, use_viewer=False)
+
+
+        cozmo.run_program(dock_with_cube)
+
         # Please refrain from enabling use_viewer since it uses tk, which must be in main thread
         cozmo.run_program(CozmoPlanning,use_3d_viewer=False, use_viewer=False)
         stopevent.set()
 
 
-class RRTThread(threading.Thread):
+class DeliveryThread(threading.Thread):
     """Thread to run RRT separate from main thread
     """
 
@@ -314,16 +337,16 @@ if __name__ == '__main__':
         if (sys.argv[i] == "-robot"):
             robotFlag = True
     if (robotFlag):
-        #creates cmap based on empty grid json
-        #"start": [50, 35],
-        #"goals": [] This is empty
         cmap = CozMap("maps/path_planning_map.json", node_generator)
         robot_thread = RobotThread()
         robot_thread.start()
     else:
         cmap = CozMap("maps/path_planning_map.json", node_generator)
-        sim = RRTThread()
+        sim = DeliveryThread()
         sim.start()
+    localization_gui.show_particles(pf.particles)
+    localization_gui.show_mean(0, 0, 0)
+    localization_gui.start()
     visualizer = Visualizer(cmap)
     visualizer.start()
     stopevent.set()
