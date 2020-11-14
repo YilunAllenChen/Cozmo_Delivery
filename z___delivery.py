@@ -289,7 +289,7 @@ async def dock_with_cube(robot: cozmo.robot.Robot):
     # Cozmo will approach the cube he has seen
     # using a 180 approach angle will cause him to drive past the cube and approach from the opposite side
     # num_retries allows us to specify how many times Cozmo will retry the action in the event of it failing
-    action = robot.dock_with_cube(cube, approach_angle=cozmo.util.degrees(180), num_retries=2)
+    action = robot.dock_with_cube(cube, approach_angle=cozmo.util.degrees(0), num_retries=2)
     await action.wait_for_completed()
     print("result:", action.result)
 
