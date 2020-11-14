@@ -109,13 +109,10 @@ def RRT(cmap, start):
     else:
         print("Please try again :-(")
 
-
-
 async def CozmoPlanning(robot: cozmo.robot.Robot):
     # Allows access to map and stopevent, which can be used to see if the GUI
     # has been closed by checking stopevent.is_set()
-    global cmap, stopevent
-
+    global stopevent, cmap
     ########################################################################
     # TODO: please enter your code below.
     # Description of function provided in instructions. Potential pseudcode is below
@@ -318,6 +315,14 @@ class RobotThread(threading.Thread):
 
         # Please refrain from enabling use_viewer since it uses tk, which must be in main thread
         cozmo.run_program(CozmoPlanning,use_3d_viewer=False, use_viewer=False)
+
+        temp = cmap.get_start()
+        cmap.set_start(cmap.get_goals()[0])
+        cmap.clear_goals()
+        cmap.add_goal(temp)
+
+        cozmo.run_program(CozmoPlanning,use_3d_viewer=False, use_viewer=False)
+
         stopevent.set()
 
 
