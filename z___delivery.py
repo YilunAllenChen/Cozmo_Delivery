@@ -109,6 +109,23 @@ def RRT(cmap, start):
     else:
         print("Please try again :-(")
 
+async def dock_with_cube(robot: cozmo.robot.Robot):
+
+    print("Cozmo is waiting until he sees a cube.")
+    cube = await robot.world.wait_for_observed_light_cube()
+    await robot.dock_with_cube(cube, approach_angle=cozmo.util.degrees(0), num_retries=2).wait_for_completed()
+    await robot.set_lift_height(1).wait_for_completed()
+    await robot.turn_in_place(cozmo.util.degrees(45),
+                                speed=cozmo.util.Angle(degrees=60)).wait_for_completed()    
+
+
+async def init(robot: cozmo.robot.Robot):
+    
+    await robot.set_lift_height(0).wait_for_completed()
+    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
+
+
+
 async def CozmoPlanning(robot: cozmo.robot.Robot):
     # Allows access to map and stopevent, which can be used to see if the GUI
     # has been closed by checking stopevent.is_set()
@@ -122,7 +139,7 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
     #Add final position as goal point to cmap, with final position being defined as a point that is at the center of the arena 
     #you can get map width and map weight from cmap.get_size()
     map_width, map_height = cmap.get_size()
-    final_pos = (map_width / 2, map_height / 2)
+    final_pos = (550, 370)
 
     #reset the current stored paths in cmap
     cmap.reset_paths()
@@ -148,19 +165,24 @@ async def CozmoPlanning(robot: cozmo.robot.Robot):
         #drive the robot to next node in path. #First turn to the appropriate angle, and then move to it
         #you can calculate the angle to turn through a trigonometric function
         subpath = paths.pop(0) # of type (from_node, to_node)
-        print("path: {}".format(paths))
         theta = np.arctan2(subpath.y - last_subpath.y, subpath.x - last_subpath.x)
         distance = get_dist(subpath, last_subpath)
         last_subpath = subpath
-        await robot.turn_in_place(angle=cozmo.util.Angle(radians=theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed()
-        await robot.drive_straight(cozmo.util.distance_mm(distance_mm=distance), cozmo.util.speed_mmps(70)).wait_for_completed()
-        await robot.turn_in_place(angle=cozmo.util.Angle(radians=-theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed() 
+        
+        await robot.turn_in_place(angle=cozmo.util.Angle(radians=theta - cozmo_angle), speed=cozmo.util.Angle(radians=1.5)).wait_for_completed()
+        cozmo_angle = theta
+        await robot.drive_straight(cozmo.util.distance_mm(distance_mm=distance), cozmo.util.speed_mmps(100)).wait_for_completed()
+        # await robot.turn_in_place(angle=cozmo.util.Angle(radians=-theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed() 
             
         # Update the current Cozmo position (cozmo_pos and cozmo_angle) to be new node position and angle 
         cozmo_pos = subpath.coord
         # Set new start position for replanning with RRT
         cmap.set_start(Node(coord=cozmo_pos))
+    await robot.turn_in_place(angle=cozmo.util.Angle(radians=-cozmo_angle), speed=cozmo.util.Angle(radians=1.5)).wait_for_completed()
+
+    await robot.drive_straight(cozmo.util.distance_mm(distance_mm=15), cozmo.util.speed_mmps(70)).wait_for_completed()
     await robot.set_lift_height(0).wait_for_completed()
+    await robot.drive_straight(cozmo.util.distance_mm(distance_mm=-15), cozmo.util.speed_mmps(70)).wait_for_completed()
     ########################################################################
     
 
@@ -178,7 +200,7 @@ async def CozmoPlanning_back(robot: cozmo.robot.Robot):
     #Add final position as goal point to cmap, with final position being defined as a point that is at the center of the arena 
     #you can get map width and map weight from cmap.get_size()
     map_width, map_height = cmap.get_size()
-    final_pos = (map_width / 2, map_height / 2)
+    final_pos = (50, 440)
 
     #reset the current stored paths in cmap
     cmap_back.reset_paths()
@@ -209,9 +231,10 @@ async def CozmoPlanning_back(robot: cozmo.robot.Robot):
         theta = np.arctan2(subpath.y - last_subpath.y, subpath.x - last_subpath.x)
         distance = get_dist(subpath, last_subpath)
         last_subpath = subpath
-        await robot.turn_in_place(angle=cozmo.util.Angle(radians=theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed()
-        await robot.drive_straight(cozmo.util.distance_mm(distance_mm=distance), cozmo.util.speed_mmps(70)).wait_for_completed()
-        await robot.turn_in_place(angle=cozmo.util.Angle(radians=-theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed() 
+        await robot.turn_in_place(angle=cozmo.util.Angle(radians=theta - cozmo_angle), speed=cozmo.util.Angle(radians=-1.5)).wait_for_completed()
+        cozmo_angle = theta
+        await robot.drive_straight(cozmo.util.distance_mm(distance_mm=distance), cozmo.util.speed_mmps(100)).wait_for_completed()
+        # await robot.turn_in_place(angle=cozmo.util.Angle(radians=-theta), speed=cozmo.util.Angle(radians=1)).wait_for_completed() 
             
         # Update the current Cozmo position (cozmo_pos and cozmo_angle) to be new node position and angle 
         cozmo_pos = subpath.coord
@@ -219,7 +242,7 @@ async def CozmoPlanning_back(robot: cozmo.robot.Robot):
         # Set new start position for replanning with RRT
         cmap.set_start(Node(coord=cozmo_pos))
 
-    await robot.turn_in_place(angle=cozmo.util.Angle(radians=45), speed=cozmo.util.Angle(radians=1)).wait_for_completed() 
+    await robot.turn_in_place(angle=cozmo.util.degrees(205), speed=cozmo.util.Angle(radians=1)).wait_for_completed() 
          
     ########################################################################
     
@@ -253,27 +276,6 @@ def get_global_node(local_angle, local_origin, node):
     new_node = Node((new_coord.reshape(-1)[0], new_coord.reshape(-1)[1]))
     return new_node
     ########################################################################
-
-async def dock_with_cube(robot: cozmo.robot.Robot):
-
-    print("Cozmo is waiting until he sees a cube.")
-    cube = await robot.world.wait_for_observed_light_cube()
-
-    
-    await robot.dock_with_cube(cube, approach_angle=cozmo.util.degrees(0), num_retries=2).wait_for_completed()
-
-    await robot.set_lift_height(1).wait_for_completed()
-
-    await robot.turn_in_place(cozmo.util.degrees(45),
-                                speed=cozmo.util.Angle(degrees=60)).wait_for_completed()    
-
-async def init(robot: cozmo.robot.Robot):
-    
-    await robot.set_lift_height(0).wait_for_completed()
-    await robot.set_head_angle(cozmo.util.degrees(0)).wait_for_completed()
-
-
-
 class RobotThread(threading.Thread):
     """Thread to run cozmo code separate from main thread
     """
@@ -283,15 +285,17 @@ class RobotThread(threading.Thread):
 
     def run(self):
         cozmo.run_program(init)
-        # cozmo.run_program(localization, use_viewer=False)
+        cozmo.run_program(localization, use_viewer=False)
 
         for i in range(5):
+            cozmo.run_program(init)
             cozmo.run_program(dock_with_cube)
 
             # Please refrain from enabling use_viewer since it uses tk, which must be in main thread
             cozmo.run_program(CozmoPlanning,use_3d_viewer=False, use_viewer=False)
 
             cozmo.run_program(CozmoPlanning_back,use_3d_viewer=False, use_viewer=False)
+            print("*" * 30, "LOOP COMPLETE", "*" * 30)
 
         stopevent.set()
 
